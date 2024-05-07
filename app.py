@@ -6,10 +6,13 @@ import base64
 
 
 def plot_altimetry(data):
-    # Round Altitude to 2 decimal places
-    data['Altitude'] = data['Altitude'].round(2)
+    # Convert distance from meters to kilometers and round to 2 decimal places
+    data['Distance_km'] = (data['Distance'] / 1000).round(2)
 
-    # Group data by Interval and calculate mean Altitude for each Interval
+    # Create a new column for interval in kilometers
+    data['Interval'] = (data['Distance_km'] // 1).astype(int) * 1
+
+    # Group data by interval and calculate mean Altitude for each Interval
     data_grouped = data.groupby('Interval')['Altitude'].mean().reset_index()
     data_grouped.rename(columns={'Interval': 'Distance_km', 'Altitude': 'Altitude_m'}, inplace=True)
 
