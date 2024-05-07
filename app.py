@@ -3,21 +3,15 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 import base64
-from mpl_toolkits.mplot3d import Axes3D
 
 
 def plot_altimetry(data):
-    # Convert distance from meters to kilometers and round to 2 decimal places
-    data['Distance_km'] = (data['Distance'] / 1000).round(2)
+    # Round Altitude to 2 decimal places
+    data['Altitude'] = data['Altitude'].round(2)
 
-    # Create a new column for interval in kilometers
-    data['Interval'] = (data['Distance_km'] // 1).astype(int) * 1
-
-    # Group data by kilometer intervals and calculate average altitudes
-    data_grouped = data.groupby('Interval').mean()
-    data_grouped = data_grouped[['Altitude', 'Distance_km']]
-    data_grouped.rename(columns={'Altitude': 'Altitude_m'}, inplace=True)
-    data_grouped = data_grouped[['Distance_km', 'Altitude_m']].round(2)
+    # Group data by Interval and calculate mean Altitude for each Interval
+    data_grouped = data.groupby('Interval')['Altitude'].mean().reset_index()
+    data_grouped.rename(columns={'Interval': 'Distance_km', 'Altitude': 'Altitude_m'}, inplace=True)
 
     return data_grouped
 
@@ -27,37 +21,11 @@ def get_excel_download_link(data, filename):
     Function to get the download link for the Excel file.
     """
     excel_output_file = f'static/{filename}.xlsx'
-
-    # Create Excel writer object
-    with pd.ExcelWriter(excel_output_file, engine='openpyxl') as writer:
-        # Write the data to the first sheet
-        data.to_excel(writer, index=False, sheet_name='Data')
-
-        # Create a new sheet for the 3D plot
-        sheet_3d = writer.book.create_sheet('3D Plot')
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.plot(data['Distance_km'], data['Altitude_m'], zs=0, zdir='z', label='Altitude Profile')
-        ax.set_xlabel('Distance (km)')
-        ax.set_ylabel('Altitude (m)')
-        ax.set_zlabel('Altitude (m)')
-        ax.set_title('Altitude Profile 3D Plot')
-        plt.savefig('3d_plot.png')  # Save the plot as a temporary file
-        plt.close(fig)
-
-        # Insert the saved image into the Excel file
-        img = openpyxl.drawing.image.Image('3d_plot.png')
-        sheet_3d.add_image(img, 'A1')
-
-    # Remove the temporary image file
-    os.remove('3d_plot.png')
-
-    # Encode the Excel file and generate download link
+    data.to_excel(excel_output_file, index=False)
     with open(excel_output_file, 'rb') as f:
         file_content = f.read()
     base64_encoded = base64.b64encode(file_content).decode()
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64_encoded}" download="{filename}.xlsx">Télécharger le fichier Excel</a>'
-
     return href
 
 
