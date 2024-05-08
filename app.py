@@ -3,6 +3,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 import base64
+import xlsxwriter
 
 
 def plot_altimetry(data):
@@ -12,9 +13,11 @@ def plot_altimetry(data):
     # Create a new column for interval in kilometers
     data['Interval'] = (data['Distance_km'] // 1).astype(int) * 1
 
-    # Group data by interval and calculate mean Altitude for each Interval
-    data_grouped = data.groupby('Interval')['Altitude'].mean().reset_index()
-    data_grouped.rename(columns={'Interval': 'Distance_km', 'Altitude': 'Altitude_m'}, inplace=True)
+    # Group data by kilometer intervals and calculate average altitudes
+    data_grouped = data.groupby('Interval').mean()
+    data_grouped = data_grouped[['Altitude', 'Distance_km']]
+    data_grouped.rename(columns={'Altitude': 'Altitude_m'}, inplace=True)
+    data_grouped = data_grouped[['Distance_km', 'Altitude_m']].round(2)
 
     return data_grouped
 
@@ -25,6 +28,31 @@ def get_excel_download_link(data, filename):
     """
     excel_output_file = f'static/{filename}.xlsx'
     data.to_excel(excel_output_file, index=False)
+    with pd.ExcelWriter(excel_output_file, engine='xlsxwriter') as writer:
+        # Write the converted data to the first sheet
+        data.to_excel(writer, sheet_name='profil_altimetry', index=False)
+
+        # Create a workbook and add a worksheet for the Air3D chart
+        workbook = writer.book
+        worksheet = workbook.add_worksheet('Air3D_chart')
+
+        # Create a chart object
+        chart = workbook.add_chart({'type': 'scatter3d'})
+
+        # Configure the chart
+        chart.add_series({
+            'name': ['profil_altimetry', 0, 1],
+            'categories': ['profil_altimetry', 1, 0, len(data), 0],
+            'values': ['profil_altimetry', 1, 1, len(data), 1],
+            'marker': {'type': 'circle', 'size': 5},
+        })
+
+        # Add the chart to the worksheet
+        worksheet.insert_chart('A1', chart)
+
+        # Close the Pandas Excel writer and save the file
+        writer.save()
+
     with open(excel_output_file, 'rb') as f:
         file_content = f.read()
     base64_encoded = base64.b64encode(file_content).decode()
@@ -44,7 +72,12 @@ uploaded_file = st.file_uploader("Télécharger un fichier CSV", type=['csv'])
 
 if uploaded_file is not None:
     # Read CSV data
-    data = pd.read_csv(uploaded_file)
+    try:
+        # Modified the way to read the CSV file with the specified format
+        data = pd.read_csv(uploaded_file, sep=';', decimal=',')
+    except Exception as e:
+        st.error(f"Une erreur s'est produite lors de la lecture du fichier CSV: {e}")
+        st.stop()
 
     st.header('Données chargées:')
     st.write(data)
@@ -60,7 +93,7 @@ if uploaded_file is not None:
 
     # Plot the topographic profile
     ax.fill_between(converted_data['Distance_km'], converted_data['Altitude_m'], color='red', alpha=0.5)
-    ax.plot(converted_data['Distance_km'], converted_data['Altitude_m'], color='black', label='Topography')
+    ax.plot(converted_data['Distance_km'], converted_data['Altitude_m'], color='black', label='Topographie')
 
     # Customize the ticks on the y-axis to show altitude in meters
     ax.set_yticks(range(0, int(max(converted_data['Altitude_m'])) + 1, 100))
