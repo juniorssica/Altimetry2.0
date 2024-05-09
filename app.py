@@ -37,7 +37,7 @@ def get_excel_download_link(data, filename):
         worksheet = workbook.add_worksheet('Air3D_chart')
 
         # Create a chart object
-        chart = workbook.add_chart({'type': 'scatter3d'})
+        chart = workbook.add_chart({'type': 'scatter3D'})
 
         # Configure the chart
         chart.add_series({
@@ -59,55 +59,3 @@ def get_excel_download_link(data, filename):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64_encoded}" download="{filename}.xlsx">Télécharger le fichier Excel</a>'
     return href
 
-
-# Create static folder if it doesn't exist
-if not os.path.exists('static'):
-    os.makedirs('static')
-
-st.title('Analyse d\'altimétrie')
-
-# Section to upload CSV file
-st.header('Télécharger le fichier CSV')
-uploaded_file = st.file_uploader("Télécharger un fichier CSV", type=['csv'])
-
-if uploaded_file is not None:
-    # Read CSV data
-    try:
-        # Modified the way to read the CSV file with the specified format
-        data = pd.read_csv(uploaded_file, sep=';', decimal=',')
-    except Exception as e:
-        st.error(f"Une erreur s'est produite lors de la lecture du fichier CSV: {e}")
-        st.stop()
-
-    st.header('Données chargées:')
-    st.write(data)
-
-    # Display converted data
-    st.header('Données converties:')
-    converted_data = plot_altimetry(data)
-    st.write(converted_data)
-
-    # Plot altimetry profile
-    st.header("Profil altimétrique")
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Plot the topographic profile
-    ax.fill_between(converted_data['Distance_km'], converted_data['Altitude_m'], color='red', alpha=0.5)
-    ax.plot(converted_data['Distance_km'], converted_data['Altitude_m'], color='black', label='Topographie')
-
-    # Customize the ticks on the y-axis to show altitude in meters
-    ax.set_yticks(range(0, int(max(converted_data['Altitude_m'])) + 1, 100))
-
-    # Label axes
-    ax.set_xlabel('Distance (km)')
-    ax.set_ylabel('Altitude (m)')
-    ax.set_title('Profil altimétrique')
-    ax.grid(True)
-    ax.legend()
-
-    # Display the plot
-    st.pyplot(fig)
-
-    # Display the link to download the processed data as Excel
-    st.markdown("### Télécharger les données converties:")
-    st.markdown(get_excel_download_link(converted_data, 'profil_altimetry'), unsafe_allow_html=True)
